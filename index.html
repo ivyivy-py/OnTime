@@ -18,6 +18,46 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <script>
+      // Third-party script error protection for iframe environments (Disqus / cross-origin scripts)
+      window.addEventListener('error', function(e) {
+        var msg = e && e.message ? String(e.message) : '';
+        var isScriptError = msg === 'Script error.' || (!e.filename && e.lineno === 0) || (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK'));
+        if (isScriptError) {
+          console.warn('Suppressed external cross-origin script error:', e);
+          e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      window.onerror = function(msg, url, line, col, err) {
+        if (!msg || msg === 'Script error.' || (!url && line === 0)) {
+          return true;
+        }
+      };
+
+      window.addEventListener('unhandledrejection', function(e) {
+        var reasonStr = e && e.reason ? String(e.reason.message || e.reason) : '';
+        if (reasonStr.includes('Script error') || reasonStr.includes('disqus')) {
+          e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        }
+      });
+
+      // Real fixed configuration values for Disqus thread
+      var disqus_config = function () {
+        try {
+          var ctx = this || window;
+          ctx.page = ctx.page || {};
+          ctx.page.url = 'https://ais-pre-mm4kkyltreb22cnzmuclfh-682905196571.asia-southeast1.run.app';
+          ctx.page.identifier = 'ontime-sg-talk-to-us';
+        } catch (err) {
+          console.warn('Disqus configuration error:', err);
+        }
+      };
+    </script>
   </head>
   <body>
     <div id="root"></div>

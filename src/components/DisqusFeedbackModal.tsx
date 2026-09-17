@@ -51,12 +51,24 @@ export const DisqusFeedbackModal: React.FC<DisqusFeedbackModalProps> = ({ isOpen
 
         {/* Disqus Notice */}
         <div className="p-3 rounded-xl bg-[#f2f3ff] border border-[#dae2fd] text-[12px] text-[#434655] space-y-1.5">
-          <div className="flex items-center gap-1.5 font-bold text-[#0037b0]">
-            <span className="material-symbols-outlined text-[16px]">verified</span>
-            <span>Canonical Disqus Thread Enabled</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold text-[#0037b0]">
+              <span className="material-symbols-outlined text-[16px]">verified</span>
+              <span>Canonical Disqus Thread Enabled</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                document.getElementById('talk-to-us')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-[11px] font-bold text-[#0037b0] hover:underline"
+            >
+              Scroll to Foot ↓
+            </button>
           </div>
           <p className="leading-relaxed">
-            As configured in <code className="bg-white px-1 py-0.5 rounded text-[11px]">&lt;link rel="canonical"&gt;</code>, comments and session telemetry hook into the class evaluation board.
+            As configured in <code className="bg-white px-1 py-0.5 rounded text-[11px]">&lt;link rel="canonical"&gt;</code>, comments hook into the live Talk to Us Disqus forum at the foot of the page.
           </p>
         </div>
 

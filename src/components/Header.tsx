@@ -116,14 +116,21 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* Feedback button */}
+          {/* Feedback / Talk to Us button */}
           <button
-            onClick={onOpenFeedback}
-            title="Classroom Feedback / Disqus"
+            onClick={() => {
+              const el = document.getElementById('talk-to-us');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                onOpenFeedback();
+              }
+            }}
+            title="Talk to Us / Disqus Forum"
             className="px-2.5 py-1.5 rounded-lg bg-[#eaedff] hover:bg-[#dae2fd] text-[#0037b0] text-[12px] font-bold flex items-center gap-1.5 transition-colors min-h-[36px]"
           >
-            <span className="material-symbols-outlined text-[16px]">rate_review</span>
-            <span className="hidden sm:inline">Disqus</span>
+            <span className="material-symbols-outlined text-[16px]">forum</span>
+            <span className="hidden sm:inline">Talk to Us</span>
           </button>
 
           {/* Profile avatar */}

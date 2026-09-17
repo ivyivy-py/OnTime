@@ -50,7 +50,7 @@ app.get('/api/health', (req: Request, res: Response) => {
  * Gemini Singlish Excuse Generator API Endpoint
  * Generates context-aware, authentic Singaporean WhatsApp excuses.
  */
-app.post('/api/gemini/excuse', async (req: Request, res: Response) => {
+app.post(['/api/gemini/excuse', '/api/excuse'], async (req: Request, res: Response) => {
   try {
     const { recipient, spiceLevel, origin, destination, liveEta, delayMinutes, incidentId } = req.body;
 

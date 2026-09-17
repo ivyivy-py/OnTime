@@ -10,6 +10,7 @@ import { PlannerView } from './components/PlannerView';
 import { ActiveRideView } from './components/ActiveRideView';
 import { LateLahAIView } from './components/LateLahAIView';
 import { DisqusFeedbackModal } from './components/DisqusFeedbackModal';
+import { TalkToUsSection } from './components/TalkToUsSection';
 import { SAMPLE_ROUTES } from './data/transitData';
 import { TransitRoute } from './types';
 
@@ -69,6 +70,9 @@ export default function App() {
         {activeTab === 'late-lah-ai' && (
           <LateLahAIView initialDelay={simulatedDelayMinutes} />
         )}
+
+        {/* Talk to Us - Embedded Disqus Section at the foot of the page */}
+        <TalkToUsSection />
       </main>
 
       {/* Mobile Bottom Navigation Bar (Visible on mobile screens < 768px, hidden on md+ where header navigation takes over) */}
