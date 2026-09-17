@@ -4,22 +4,36 @@
  * arrive-by target calculations, transit preference toggles, and live comparison cards.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LOCATION_PRESETS, SAMPLE_ROUTES, getWalkingPaceAdvice } from '../data/transitData';
 import { TransitRoute } from '../types';
+import { determinePacingStatus } from '../utils/timeCalculations';
 
 interface PlannerViewProps {
   onSelectRoute: (route: TransitRoute) => void;
   onNavigateToActive: () => void;
+  arriveByTime: string;
+  onChangeArriveByTime: (time: string) => void;
 }
 
-export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavigateToActive }) => {
+export const PlannerView: React.FC<PlannerViewProps> = ({
+  onSelectRoute,
+  onNavigateToActive,
+  arriveByTime,
+  onChangeArriveByTime,
+}) => {
   const [origin, setOrigin] = useState<string>('Tampines Ave 4 (Home)');
   const [destination, setDestination] = useState<string>('Suntec City Tower 2 (Office)');
-  const [arriveByTime, setArriveByTime] = useState<string>('09:00');
   const [transitPreference, setTransitPreference] = useState<'mrt' | 'bus_first'>('bus_first');
   const [filterMode, setFilterMode] = useState<'fastest' | 'fewer_transfers'>('fastest');
   const [selectedRouteId, setSelectedRouteId] = useState<string>('route-bus65-dtl');
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  // Clock tick to keep pacing and arrival accurate
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Handle setting presets
   const handleSelectPreset = (presetName: string, isOrigin: boolean) => {
@@ -36,9 +50,13 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
     setDestination(temp);
   };
 
-  const handleActivate = (route: TransitRoute) => {
+  const handleActivate = (route: TransitRoute, estReachTime: string, bufferMinutes: number) => {
     setSelectedRouteId(route.id);
-    onSelectRoute(route);
+    onSelectRoute({
+      ...route,
+      estReachTime,
+      bufferMinutes,
+    });
     onNavigateToActive();
   };
 
@@ -143,7 +161,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
                 <input
                   type="time"
                   value={arriveByTime}
-                  onChange={(e) => setArriveByTime(e.target.value)}
+                  onChange={(e) => onChangeArriveByTime(e.target.value)}
                   className="bg-transparent font-bold text-[15px] text-[#131b2e] focus:outline-none cursor-pointer"
                 />
               </div>
@@ -191,7 +209,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
                 Route Results &amp; Pace Dashboard
               </h3>
               <p className="text-[12px] text-[#434655]">
-                Target Arrival: <span className="font-bold text-[#131b2e]">{arriveByTime} AM</span> • Live LTA Sync
+                Target: <strong className="text-[#131b2e]">{determinePacingStatus(0, arriveByTime, currentTime).targetTimeFormatted}</strong> • Current Time: <strong className="text-[#0037b0]">{determinePacingStatus(0, arriveByTime, currentTime).currentTimeFormatted}</strong>
               </p>
             </div>
             {/* Filter toggles */}
@@ -220,6 +238,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
         {SAMPLE_ROUTES.map((route) => {
           const pace = getWalkingPaceAdvice(route.firstMileDistanceMeters);
           const isSelected = selectedRouteId === route.id;
+          const pacing = determinePacingStatus(route.totalDurationMin, arriveByTime, currentTime);
 
           return (
             <div
@@ -236,11 +255,18 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
                   </span>
                   <span className="text-[12px] font-bold text-[#131b2e]">{route.title}</span>
                 </div>
-                {/* Buffer badge */}
-                <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[#85f8c4] text-[#002114] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#004f35] animate-ping"></span>
-                  +{route.bufferMinutes}m buffer
-                </span>
+                {/* Dynamic late vs buffer badge based on current time + total time needed */}
+                {pacing.isLate ? (
+                  <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#93000b] border border-[#ba1a1a]/20 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a] animate-pulse"></span>
+                    +{pacing.lateMinutes}m Late
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#85f8c4] text-[#002114] border border-[#004f35]/20 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#004f35] animate-ping"></span>
+                    +{pacing.bufferMinutes}m buffer
+                  </span>
+                )}
               </div>
 
               {/* Time and Distance metrics */}
@@ -253,7 +279,9 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
                 </div>
                 <div>
                   <span className="text-[10px] text-[#434655] font-semibold block">Est. Reach</span>
-                  <span className="text-[16px] font-extrabold text-[#004f35]">{route.estReachTime}</span>
+                  <span className={`text-[16px] font-extrabold ${pacing.isLate ? 'text-[#ba1a1a]' : 'text-[#004f35]'}`}>
+                    {pacing.estReachTimeFormatted}
+                  </span>
                 </div>
                 <div>
                   <span className="text-[10px] text-[#434655] font-semibold block">Fare / Crowd</span>
@@ -280,10 +308,18 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
                 {/* Smart Walking Pace Indicator Badge */}
                 <div className="flex items-center justify-between">
                   <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-tight ${pace.badgeClass}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-tight ${
+                      pacing.isLate
+                        ? 'bg-[#ffdad6] text-[#93000b] border border-[#ba1a1a]/20'
+                        : pace.badgeClass
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[14px]">{pace.icon}</span>
-                    {pace.shortText}
+                    <span className="material-symbols-outlined text-[14px]">
+                      {pacing.isLate ? 'sprint' : pace.icon}
+                    </span>
+                    {pacing.isLate
+                      ? `Sprint! Late alert (+${pacing.lateMinutes}m)`
+                      : pace.shortText}
                   </span>
 
                   {/* Live countdown preview */}
@@ -298,7 +334,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSelectRoute, onNavig
               <div className="pt-1 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleActivate(route)}
+                  onClick={() => handleActivate(route, pacing.estReachTimeFormatted, pacing.isLate ? -pacing.lateMinutes : pacing.bufferMinutes)}
                   className="w-full py-2 px-3 rounded-full bg-[#0037b0] hover:bg-[#1d4ed8] text-white font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-sm active:scale-98 transition-all"
                 >
                   <span className="material-symbols-outlined text-[16px]">directions_transit</span>

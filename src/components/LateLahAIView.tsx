@@ -5,20 +5,33 @@
  * Perfectly adheres to Image 3 and Singapore cultural humor & professionalism.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { generateSinglishExcuse } from '../services/excuseGenerator';
 import { ExcuseRequest } from '../types';
+import { parseTimeToMinutes, formatMinutesToTime } from '../utils/timeCalculations';
 
 interface LateLahAIViewProps {
   initialDelay?: number;
+  targetArrivalTime?: string;
 }
 
-export const LateLahAIView: React.FC<LateLahAIViewProps> = ({ initialDelay = 18 }) => {
+export const LateLahAIView: React.FC<LateLahAIViewProps> = ({
+  initialDelay = 18,
+  targetArrivalTime = '09:00',
+}) => {
   const [recipient, setRecipient] = useState<'boss' | 'colleagues' | 'friends'>('boss');
   const [spiceLevel, setSpiceLevel] = useState<1 | 2 | 3>(2);
   const [delayMinutes, setDelayMinutes] = useState<number>(initialDelay);
-  const [targetArrival, setTargetArrival] = useState<string>('9:00 AM');
-  const [liveEta, setLiveEta] = useState<string>('9:18 AM');
+  const [targetArrival, setTargetArrival] = useState<string>(() => {
+    return targetArrivalTime ? formatMinutesToTime(parseTimeToMinutes(targetArrivalTime)) : '9:00 AM';
+  });
+
+  // Compute live ETA directly from targetArrival + delayMinutes
+  const liveEta = useMemo(() => {
+    const targetMins = parseTimeToMinutes(targetArrival);
+    return formatMinutesToTime(targetMins + delayMinutes);
+  }, [targetArrival, delayMinutes]);
+
   const [messageText, setMessageText] = useState<string>(
     'Good morning Boss, paiseh! DT Line train got crowd delay and bus transfer jammed at PIE. Currently brisk walking from MRT, live ETA 9:18 AM. Will make up time, thank you boss!'
   );
@@ -28,6 +41,19 @@ export const LateLahAIView: React.FC<LateLahAIViewProps> = ({ initialDelay = 18 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const incidentRef = useRef<string>('DTL-918-LIVE');
+
+  // Keep targetArrival and delayMinutes in sync with props
+  useEffect(() => {
+    if (targetArrivalTime) {
+      setTargetArrival(formatMinutesToTime(parseTimeToMinutes(targetArrivalTime)));
+    }
+  }, [targetArrivalTime]);
+
+  useEffect(() => {
+    if (initialDelay) {
+      setDelayMinutes(initialDelay);
+    }
+  }, [initialDelay]);
 
   // Spice labels map
   const spiceLabels: Record<number, string> = {

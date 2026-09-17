@@ -7,15 +7,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { TransitRoute } from '../types';
+import { determinePacingStatus } from '../utils/timeCalculations';
 
 interface ActiveRideViewProps {
   currentRoute: TransitRoute;
   onOpenExcuseGenerator: (delayMinutes?: number) => void;
+  targetArrivalTime?: string;
 }
 
 export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
   currentRoute,
-  onOpenExcuseGenerator
+  onOpenExcuseGenerator,
+  targetArrivalTime = '09:00',
 }) => {
   // Live seconds countdown simulation
   const [busCountdownMin, setBusCountdownMin] = useState<number>(2);
@@ -24,10 +27,13 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
   const [mrtCountdownSec, setMrtCountdownSec] = useState<number>(10);
   const [rideHailingToast, setRideHailingToast] = useState<string | null>(null);
   const [isSimulatedDelay, setIsSimulatedDelay] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   // Live timer ticks
   useEffect(() => {
     const timer = setInterval(() => {
+      setCurrentTime(new Date());
+
       setBusCountdownSec((prev) => {
         if (prev > 0) return prev - 1;
         setBusCountdownMin((m) => (m > 0 ? m - 1 : 4));
@@ -44,6 +50,11 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Determine if user will be late based on current time + total time needed vs target arrival
+  const simulatedDelayAddon = isSimulatedDelay ? 18 : 0;
+  const totalTimeNeeded = currentRoute.totalDurationMin + simulatedDelayAddon;
+  const pacing = determinePacingStatus(totalTimeNeeded, targetArrivalTime, currentTime);
+
   const handleLaunchRide = (provider: 'Grab' | 'TADA', price: string) => {
     setRideHailingToast(`Opening ${provider} app... Est fare: ${price}`);
     setTimeout(() => {
@@ -52,8 +63,13 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
   };
 
   const handleTriggerDelay = () => {
-    setIsSimulatedDelay(true);
-    onOpenExcuseGenerator(18);
+    const nextState = !isSimulatedDelay;
+    setIsSimulatedDelay(nextState);
+    if (nextState) {
+      // Calculate delay minutes
+      const lateMins = Math.max(18, pacing.lateMinutes + 18);
+      onOpenExcuseGenerator(lateMins);
+    }
   };
 
   return (
@@ -71,34 +87,64 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold px-3 py-1 rounded-full bg-[#dce1ff] text-[#001551] uppercase tracking-wider">
             <span className="material-symbols-outlined text-[15px]">check_circle</span>
-            Active Trip
+            Active Trip • {currentRoute.title}
           </span>
-          <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-[#85f8c4] text-[#002114] flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#004f35] animate-ping"></span>
-            8 min buffer
-          </span>
+          {pacing.isLate ? (
+            <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-[#ffdad6] text-[#93000b] border border-[#ba1a1a]/20 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#ba1a1a] animate-pulse"></span>
+              Late by {pacing.lateMinutes} min
+            </span>
+          ) : (
+            <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-[#85f8c4] text-[#002114] border border-[#004f35]/20 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#004f35] animate-ping"></span>
+              +{pacing.bufferMinutes}m buffer
+            </span>
+          )}
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="font-extrabold text-[20px] sm:text-[22px] text-[#131b2e] leading-snug">
               Tampines → Suntec City
             </h2>
-            <p className="text-[13px] text-[#434655] flex items-center gap-1.5 mt-0.5">
-              Target: <span className="text-[#131b2e] font-bold">9:00 AM</span> • Est. Reach:{' '}
-              <span className="text-[#004f35] font-extrabold text-[16px]">8:52 AM</span>
+            <p className="text-[13px] text-[#434655] flex flex-wrap items-center gap-1.5 mt-0.5">
+              <span>Target: <strong className="text-[#131b2e]">{pacing.targetTimeFormatted}</strong></span>
+              <span>•</span>
+              <span>Est. Reach: <strong className={`text-[15px] ${pacing.isLate ? 'text-[#ba1a1a]' : 'text-[#004f35]'}`}>{pacing.estReachTimeFormatted}</strong></span>
+              {pacing.isLate && (
+                <span className="text-[#ba1a1a] font-bold text-[12px] bg-[#ffdad6] px-2 py-0.5 rounded-md">
+                  (Late Lah! Exceeds target by {pacing.lateMinutes}m)
+                </span>
+              )}
             </p>
           </div>
 
-          {/* Quick simulation button */}
-          <div className="pt-2 sm:pt-0 flex items-center gap-2">
+          {/* Action buttons */}
+          <div className="pt-2 sm:pt-0 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleTriggerDelay}
-              className="px-3 py-1.5 rounded-lg bg-[#ffdad6] text-[#93000b] hover:bg-[#ffb4ab] font-bold text-[12px] flex items-center gap-1.5 transition-all min-h-[36px]"
+              className={`px-3 py-1.5 rounded-lg font-bold text-[12px] flex items-center gap-1.5 transition-all min-h-[36px] ${
+                isSimulatedDelay
+                  ? 'bg-[#dce1ff] text-[#001551] hover:bg-[#c2ccff]'
+                  : 'bg-[#ffdad6] text-[#93000b] hover:bg-[#ffb4ab]'
+              }`}
             >
-              <span className="material-symbols-outlined text-[15px]">warning</span>
-              Simulate +18m Delay
+              <span className="material-symbols-outlined text-[15px]">
+                {isSimulatedDelay ? 'restart_alt' : 'warning'}
+              </span>
+              {isSimulatedDelay ? 'Reset +18m Delay' : 'Simulate +18m Delay'}
             </button>
+
+            {pacing.isLate && (
+              <button
+                type="button"
+                onClick={() => onOpenExcuseGenerator(pacing.lateMinutes)}
+                className="px-3.5 py-1.5 rounded-lg bg-[#ba1a1a] text-white hover:bg-[#93000b] font-bold text-[12px] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[36px]"
+              >
+                <span className="material-symbols-outlined text-[16px]">chat</span>
+                WhatsApp Excuse (+{pacing.lateMinutes}m)
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -116,10 +162,17 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
                 Step 1: First Mile Bus
               </span>
             </div>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffdad6] text-[#93000b] text-[11px] font-extrabold">
-              <span className="material-symbols-outlined text-[14px]">sprint</span>
-              Walk Faster! (120 spm)
-            </span>
+            {pacing.isLate ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffdad6] text-[#93000b] border border-[#ba1a1a]/20 text-[11px] font-extrabold">
+                <span className="material-symbols-outlined text-[14px]">sprint</span>
+                Walk Faster! (120 spm)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#dcfce7] text-[#14532d] border border-[#22c55e]/20 text-[11px] font-extrabold">
+                <span className="material-symbols-outlined text-[14px]">directions_walk</span>
+                Normal Pace (60 spm)
+              </span>
+            )}
           </div>
 
           {/* Walking instruction */}

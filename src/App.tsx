@@ -13,10 +13,12 @@ import { DisqusFeedbackModal } from './components/DisqusFeedbackModal';
 import { TalkToUsSection } from './components/TalkToUsSection';
 import { SAMPLE_ROUTES } from './data/transitData';
 import { TransitRoute } from './types';
+import { getDefaultTargetTime } from './utils/timeCalculations';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'plan' | 'active-ride' | 'late-lah-ai'>('active-ride');
   const [currentRoute, setCurrentRoute] = useState<TransitRoute>(SAMPLE_ROUTES[0]);
+  const [targetArrivalTime, setTargetArrivalTime] = useState<string>(() => getDefaultTargetTime());
   const [isDisqusModalOpen, setIsDisqusModalOpen] = useState<boolean>(false);
   const [simulatedDelayMinutes, setSimulatedDelayMinutes] = useState<number>(18);
 
@@ -57,6 +59,8 @@ export default function App() {
           <PlannerView
             onSelectRoute={handleSelectRoute}
             onNavigateToActive={() => setActiveTab('active-ride')}
+            arriveByTime={targetArrivalTime}
+            onChangeArriveByTime={setTargetArrivalTime}
           />
         )}
 
@@ -64,11 +68,15 @@ export default function App() {
           <ActiveRideView
             currentRoute={currentRoute}
             onOpenExcuseGenerator={handleOpenExcuseGenerator}
+            targetArrivalTime={targetArrivalTime}
           />
         )}
 
         {activeTab === 'late-lah-ai' && (
-          <LateLahAIView initialDelay={simulatedDelayMinutes} />
+          <LateLahAIView
+            initialDelay={simulatedDelayMinutes}
+            targetArrivalTime={targetArrivalTime}
+          />
         )}
 
         {/* Talk to Us - Embedded Disqus Section at the foot of the page */}
