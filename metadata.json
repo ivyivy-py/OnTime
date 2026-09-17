@@ -1,0 +1,6 @@
+{
+  "name": "OnTime SG",
+  "description": "Singapore Smart Commute & Pacing Transit Planner with Gemini Singlish WhatsApp Excuse Generator and live LTA countdowns",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
