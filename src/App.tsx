@@ -42,14 +42,16 @@ export default function App() {
 
   return (
     <div className="bg-[#faf8ff] text-[#131b2e] min-h-screen flex flex-col antialiased selection:bg-[#dce1ff] font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Top Header */}
+      {/* Top Header with responsive navigation */}
       <Header
         activeTabTitle={getTabTitle()}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
         onOpenFeedback={() => setIsDisqusModalOpen(true)}
       />
 
-      {/* Main Content Area (Max width 520px matching mobile & tablet ergonomic standards) */}
-      <main className="flex-1 flex flex-col relative w-full pt-16 pb-24 max-w-[520px] mx-auto">
+      {/* Main Content Area (Fluid responsive container: 100% on mobile, max-w-6xl on desktop) */}
+      <main className="flex-1 flex flex-col relative w-full pt-20 pb-28 md:pb-12 max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 transition-all">
         {activeTab === 'plan' && (
           <PlannerView
             onSelectRoute={handleSelectRoute}
@@ -69,9 +71,9 @@ export default function App() {
         )}
       </main>
 
-      {/* Persistent Bottom Navigation (Matches Image 1 & 3 exactly) */}
-      <nav className="fixed bottom-0 w-full z-50 pb-safe bg-white/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(19,27,46,0.06)] border-t border-[#eaedff]">
-        <div className="max-w-[520px] mx-auto h-16 px-4 flex items-center justify-around">
+      {/* Mobile Bottom Navigation Bar (Visible on mobile screens < 768px, hidden on md+ where header navigation takes over) */}
+      <nav className="md:hidden fixed bottom-0 w-full z-50 pb-safe bg-white/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(19,27,46,0.06)] border-t border-[#eaedff]">
+        <div className="w-full max-w-md mx-auto h-16 px-4 flex items-center justify-around">
           {/* Plan Tab */}
           <button
             type="button"
