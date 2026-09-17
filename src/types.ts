@@ -39,7 +39,7 @@ export interface MrtStation {
 /** Step in a transit journey */
 export interface JourneyStep {
   stepNumber: number;
-  type: 'WALK' | 'BUS' | 'MRT';
+  type: 'WALK' | 'BUS' | 'MRT' | 'CAR';
   title: string;
   fromName: string;
   fromCode?: string;
@@ -89,6 +89,24 @@ export interface TransitRoute {
   estReachTime: string;
   crowdLevel: 'Low' | 'Moderate' | 'High';
   fareSgd: number;
+  /** True when totalDurationMin/etc. are computed estimates rather than pulled from a live feed. */
+  isEstimate?: boolean;
+  /** Human-readable note on what's live vs estimated in this route, shown in the UI. */
+  liveDataNote?: string;
+  /** Display names for the trip's endpoints, e.g. "Tampines (Home)" / "Suntec City (Office)". */
+  originName?: string;
+  destinationName?: string;
+  /** Same-trip car estimate, attached so ActiveRideView can show it without extra plumbing. */
+  driveEstimateMinutes?: number;
+  driveDistanceMeters?: number;
+}
+
+/** A "drive it yourself" timing option — always a computed estimate, never live traffic. */
+export interface DriveOption {
+  distanceMeters: number;
+  estimatedMinutes: number;
+  isEstimate: true;
+  method: string;
 }
 
 /** Excuse generation payload */

@@ -11,13 +11,14 @@ import { ActiveRideView } from './components/ActiveRideView';
 import { LateLahAIView } from './components/LateLahAIView';
 import { DisqusFeedbackModal } from './components/DisqusFeedbackModal';
 import { TalkToUsSection } from './components/TalkToUsSection';
-import { SAMPLE_ROUTES } from './data/transitData';
 import { TransitRoute } from './types';
 import { getDefaultTargetTime } from './utils/timeCalculations';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'plan' | 'active-ride' | 'late-lah-ai'>('active-ride');
-  const [currentRoute, setCurrentRoute] = useState<TransitRoute>(SAMPLE_ROUTES[0]);
+  // Starts on Plan: there's no route to track until the user picks an
+  // origin/destination and computes one — no more hardcoded default route.
+  const [activeTab, setActiveTab] = useState<'plan' | 'active-ride' | 'late-lah-ai'>('plan');
+  const [currentRoute, setCurrentRoute] = useState<TransitRoute | null>(null);
   const [targetArrivalTime, setTargetArrivalTime] = useState<string>(() => getDefaultTargetTime());
   const [isDisqusModalOpen, setIsDisqusModalOpen] = useState<boolean>(false);
   const [simulatedDelayMinutes, setSimulatedDelayMinutes] = useState<number>(18);
@@ -64,12 +65,28 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'active-ride' && (
+        {activeTab === 'active-ride' && currentRoute && (
           <ActiveRideView
             currentRoute={currentRoute}
             onOpenExcuseGenerator={handleOpenExcuseGenerator}
             targetArrivalTime={targetArrivalTime}
           />
+        )}
+
+        {activeTab === 'active-ride' && !currentRoute && (
+          <div className="flex flex-col items-center justify-center text-center gap-3 py-16">
+            <span className="material-symbols-outlined text-[36px] text-[#0037b0]">directions_transit</span>
+            <p className="text-[14px] text-[#434655] font-semibold max-w-xs">
+              No active ride yet. Head to Plan, pick your origin and destination, and tap "Save Me the Headache".
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab('plan')}
+              className="px-4 py-2 rounded-full bg-[#0037b0] text-white font-bold text-[13px]"
+            >
+              Go to Plan
+            </button>
+          </div>
         )}
 
         {activeTab === 'late-lah-ai' && (
