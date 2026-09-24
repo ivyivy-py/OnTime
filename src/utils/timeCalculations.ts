@@ -90,7 +90,20 @@ export function determinePacingStatus(
 ): PacingCalculation {
   const currentMinutes = baseDate.getHours() * 60 + baseDate.getMinutes();
   const estimatedReachMinutes = currentMinutes + totalTimeNeededMin;
-  const targetMinutes = parseTimeToMinutes(targetArrivalTimeStr);
+  let targetMinutes = parseTimeToMinutes(targetArrivalTimeStr);
+
+  // Midnight rollover: an "arrive by" time before 6am that's numerically
+  // less than the current clock time almost always means the NEXT
+  // occurrence of that time (tomorrow), not 18+ hours ago today — e.g. at
+  // 11:30pm, "Arrive by 12:30am" means one hour from now. Comparing raw
+  // minutes-since-midnight without this would read as impossibly late.
+  // This only fires for genuinely early-morning targets (before 6am) so it
+  // never touches the app's main "late for a 9am thing" case, where the
+  // target is later in the day and the lateness is real.
+  const EARLY_MORNING_CUTOFF = 6 * 60;
+  if (targetMinutes < EARLY_MORNING_CUTOFF && currentMinutes >= EARLY_MORNING_CUTOFF && targetMinutes < currentMinutes) {
+    targetMinutes += 1440;
+  }
 
   const diffMinutes = targetMinutes - estimatedReachMinutes;
   const isLate = diffMinutes < 0;

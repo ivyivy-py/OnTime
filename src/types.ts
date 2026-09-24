@@ -109,6 +109,19 @@ export interface DriveOption {
   method: string;
 }
 
+/**
+ * What triggered a hop to the Late Lah! AI tab — carries the REAL pacing
+ * state (not a hardcoded assumption of lateness) so that tab can show an
+ * "I'm on my way" check-in instead of manufacturing an excuse when the
+ * plan is actually on time.
+ */
+export interface ExcuseTrigger {
+  isLate: boolean;
+  delayMinutes: number;
+  /** The route's actual estimated-reach time, e.g. "8:52 AM". */
+  etaFormatted: string;
+}
+
 /** Excuse generation payload */
 export interface ExcuseRequest {
   recipient: 'boss' | 'colleagues' | 'friends';

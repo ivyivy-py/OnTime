@@ -11,8 +11,10 @@ import { ActiveRideView } from './components/ActiveRideView';
 import { LateLahAIView } from './components/LateLahAIView';
 import { DisqusFeedbackModal } from './components/DisqusFeedbackModal';
 import { TalkToUsSection } from './components/TalkToUsSection';
-import { TransitRoute } from './types';
+import { TransitRoute, ExcuseTrigger } from './types';
 import { getDefaultTargetTime } from './utils/timeCalculations';
+
+const DEFAULT_TRIGGER: ExcuseTrigger = { isLate: true, delayMinutes: 18, etaFormatted: '' };
 
 export default function App() {
   // Starts on Plan: there's no route to track until the user picks an
@@ -21,15 +23,17 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState<TransitRoute | null>(null);
   const [targetArrivalTime, setTargetArrivalTime] = useState<string>(() => getDefaultTargetTime());
   const [isDisqusModalOpen, setIsDisqusModalOpen] = useState<boolean>(false);
-  const [simulatedDelayMinutes, setSimulatedDelayMinutes] = useState<number>(18);
+  // The REAL pacing state that sent us to Late Lah! AI, not an assumed delay
+  // — lets that tab show an "I'm on my way" check-in when the plan is on time.
+  const [excuseTrigger, setExcuseTrigger] = useState<ExcuseTrigger>(DEFAULT_TRIGGER);
 
   const handleSelectRoute = (route: TransitRoute) => {
     setCurrentRoute(route);
     setActiveTab('active-ride');
   };
 
-  const handleOpenExcuseGenerator = (delayMinutes: number = 18) => {
-    setSimulatedDelayMinutes(delayMinutes);
+  const handleOpenExcuseGenerator = (trigger: ExcuseTrigger) => {
+    setExcuseTrigger(trigger);
     setActiveTab('late-lah-ai');
   };
 
@@ -91,8 +95,11 @@ export default function App() {
 
         {activeTab === 'late-lah-ai' && (
           <LateLahAIView
-            initialDelay={simulatedDelayMinutes}
+            isLate={excuseTrigger.isLate}
+            initialDelay={excuseTrigger.delayMinutes}
+            actualEtaFormatted={excuseTrigger.etaFormatted}
             targetArrivalTime={targetArrivalTime}
+            currentRoute={currentRoute}
           />
         )}
 

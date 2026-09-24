@@ -25,6 +25,32 @@ export const LOCAL_EXCUSES = {
   }
 };
 
+/** Simple "I'm on my way" messages for when the plan is actually on time — no excuse needed. */
+export const ON_TIME_MESSAGES = {
+  boss: "Hi Boss, I'm on my way — ETA {LIVE_ETA}!",
+  colleagues: "Hey team, I'm on my way — ETA {LIVE_ETA}!",
+  friends: "Hey! I'm on my way — ETA {LIVE_ETA}!",
+};
+
+/**
+ * On-time check-in message. This is a plain local template, not a Gemini
+ * call: there's no delay to explain, so there's nothing for the AI excuse
+ * prompt to do — generatedByAi is always false here, and the UI should
+ * treat this as a template, not an AI-authored message.
+ */
+export function generateOnTimeMessage(req: Pick<ExcuseRequest, 'recipient' | 'liveEta' | 'incidentId'>): ExcuseResponse {
+  const template = ON_TIME_MESSAGES[req.recipient] || ON_TIME_MESSAGES.boss;
+  const message = template.replace('{LIVE_ETA}', req.liveEta || 'shortly');
+  return {
+    message,
+    tone: req.recipient,
+    spiceLevel: 0,
+    incidentId: req.incidentId,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    generatedByAi: false,
+  };
+}
+
 /**
  * Calls Gemini serverless API or uses contextual fallback
  */

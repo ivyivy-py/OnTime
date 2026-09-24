@@ -14,13 +14,13 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { TransitRoute, JourneyStep } from '../types';
+import { TransitRoute, JourneyStep, ExcuseTrigger } from '../types';
 import { determinePacingStatus } from '../utils/timeCalculations';
 import { formatDistance } from '../utils/geo';
 
 interface ActiveRideViewProps {
   currentRoute: TransitRoute;
-  onOpenExcuseGenerator: (delayMinutes?: number) => void;
+  onOpenExcuseGenerator: (trigger: ExcuseTrigger) => void;
   targetArrivalTime?: string;
 }
 
@@ -90,8 +90,10 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
     const nextState = !isSimulatedDelay;
     setIsSimulatedDelay(nextState);
     if (nextState) {
+      // Simulating IS explicitly asking to see the late-excuse flow, so this
+      // one forces isLate:true even if the real plan is on time right now.
       const lateMins = Math.max(18, pacing.lateMinutes + 18);
-      onOpenExcuseGenerator(lateMins);
+      onOpenExcuseGenerator({ isLate: true, delayMinutes: lateMins, etaFormatted: pacing.estReachTimeFormatted });
     }
   };
 
@@ -171,7 +173,7 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
             {pacing.isLate && (
               <button
                 type="button"
-                onClick={() => onOpenExcuseGenerator(pacing.lateMinutes)}
+                onClick={() => onOpenExcuseGenerator({ isLate: true, delayMinutes: pacing.lateMinutes, etaFormatted: pacing.estReachTimeFormatted })}
                 className="px-3.5 py-1.5 rounded-lg bg-[#ba1a1a] text-white hover:bg-[#93000b] font-bold text-[12px] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[36px]"
               >
                 <span className="material-symbols-outlined text-[16px]">chat</span>
@@ -332,24 +334,40 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
           </div>
         </div>
 
-        {/* Delays Ahead Alert Card */}
+        {/* Status Check-in Card — reflects the REAL pacing, not a hardcoded delay.
+            Late: offers the Singlish excuse generator. On time: offers a quick
+            "I'm on my way" check-in instead — there's nothing to excuse. */}
         <div className="rounded-2xl bg-[#dae2fd] border border-[#c4c5d7] p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-sm">
           <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined text-[26px] text-[#bb0112] mt-0.5">warning</span>
+            <span className={`material-symbols-outlined text-[26px] mt-0.5 ${pacing.isLate ? 'text-[#bb0112]' : 'text-[#004f35]'}`}>
+              {pacing.isLate ? 'warning' : 'check_circle'}
+            </span>
             <div className="flex-1">
-              <span className="font-extrabold text-[16px] text-[#131b2e] block">Delays ahead?</span>
+              <span className="font-extrabold text-[16px] text-[#131b2e] block">
+                {pacing.isLate ? 'Delays ahead?' : "You're on track"}
+              </span>
               <p className="text-[12px] sm:text-[13px] text-[#434655] leading-relaxed mt-0.5">
-                If transit exceeds {pacing.targetTimeFormatted}, tap below to generate an airtight Singlish WhatsApp excuse via Gemini AI.
+                {pacing.isLate
+                  ? `Transit is tracking past ${pacing.targetTimeFormatted} — tap below to generate an airtight Singlish WhatsApp excuse via Gemini AI.`
+                  : `Est. reach ${pacing.estReachTimeFormatted}, ahead of your ${pacing.targetTimeFormatted} target — send a quick "I'm on my way" check-in.`}
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={() => onOpenExcuseGenerator(18)}
-            className="w-full py-3 px-4 rounded-full bg-[#e02928] hover:bg-[#bb0112] text-white font-extrabold text-[14px] flex items-center justify-center gap-2 active:scale-98 transition-all shadow-sm min-h-[44px]"
+            onClick={() =>
+              onOpenExcuseGenerator({
+                isLate: pacing.isLate,
+                delayMinutes: pacing.isLate ? pacing.lateMinutes : 0,
+                etaFormatted: pacing.estReachTimeFormatted,
+              })
+            }
+            className={`w-full py-3 px-4 rounded-full text-white font-extrabold text-[14px] flex items-center justify-center gap-2 active:scale-98 transition-all shadow-sm min-h-[44px] ${
+              pacing.isLate ? 'bg-[#e02928] hover:bg-[#bb0112]' : 'bg-[#004f35] hover:bg-[#00382a]'
+            }`}
           >
-            <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
-            Late Lah! Excuse Generator →
+            <span className="material-symbols-outlined text-[18px]">{pacing.isLate ? 'auto_awesome' : 'send'}</span>
+            {pacing.isLate ? 'Late Lah! Excuse Generator →' : "I'm On My Way →"}
           </button>
         </div>
       </div>
