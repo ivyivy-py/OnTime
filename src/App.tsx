@@ -6,12 +6,13 @@
 
 import React, { useState } from 'react';
 import { Header } from './components/Header';
-import { PlannerView } from './components/PlannerView';
+import { PlannerView, PlanSearchState, DEFAULT_PLAN_SEARCH_STATE } from './components/PlannerView';
 import { ActiveRideView } from './components/ActiveRideView';
 import { LateLahAIView } from './components/LateLahAIView';
 import { DisqusFeedbackModal } from './components/DisqusFeedbackModal';
 import { TalkToUsSection } from './components/TalkToUsSection';
 import { TransitRoute, ExcuseTrigger } from './types';
+import { RoutePoint } from './data/transitData';
 import { getDefaultTargetTime } from './utils/timeCalculations';
 
 const DEFAULT_TRIGGER: ExcuseTrigger = { isLate: true, delayMinutes: 18, etaFormatted: '' };
@@ -21,14 +22,27 @@ export default function App() {
   // origin/destination and computes one — no more hardcoded default route.
   const [activeTab, setActiveTab] = useState<'plan' | 'active-ride' | 'late-lah-ai'>('plan');
   const [currentRoute, setCurrentRoute] = useState<TransitRoute | null>(null);
+  // The destination the ACTIVE route is really headed to, captured at the
+  // moment "Start Active Ride & Track" was tapped — kept separate from
+  // planSearch.destination below so it can't drift if the user flips back
+  // to Plan and edits the search while a ride is already in progress.
+  const [activeDestination, setActiveDestination] = useState<RoutePoint | null>(null);
   const [targetArrivalTime, setTargetArrivalTime] = useState<string>(() => getDefaultTargetTime());
   const [isDisqusModalOpen, setIsDisqusModalOpen] = useState<boolean>(false);
   // The REAL pacing state that sent us to Late Lah! AI, not an assumed delay
   // — lets that tab show an "I'm on my way" check-in when the plan is on time.
   const [excuseTrigger, setExcuseTrigger] = useState<ExcuseTrigger>(DEFAULT_TRIGGER);
+  // Origin/destination/results for the Plan tab, lifted up here (instead of
+  // living inside PlannerView's own useState) so switching to Active Ride or
+  // Late Lah! AI and back doesn't wipe out what the user already searched.
+  const [planSearch, setPlanSearch] = useState<PlanSearchState>(DEFAULT_PLAN_SEARCH_STATE);
+  const handleChangePlanSearch = (patch: Partial<PlanSearchState>) => {
+    setPlanSearch((prev) => ({ ...prev, ...patch }));
+  };
 
-  const handleSelectRoute = (route: TransitRoute) => {
+  const handleSelectRoute = (route: TransitRoute, destinationPoint: RoutePoint) => {
     setCurrentRoute(route);
+    setActiveDestination(destinationPoint);
     setActiveTab('active-ride');
   };
 
@@ -66,6 +80,8 @@ export default function App() {
             onNavigateToActive={() => setActiveTab('active-ride')}
             arriveByTime={targetArrivalTime}
             onChangeArriveByTime={setTargetArrivalTime}
+            search={planSearch}
+            onChangeSearch={handleChangePlanSearch}
           />
         )}
 
@@ -74,6 +90,7 @@ export default function App() {
             currentRoute={currentRoute}
             onOpenExcuseGenerator={handleOpenExcuseGenerator}
             targetArrivalTime={targetArrivalTime}
+            destination={activeDestination}
           />
         )}
 

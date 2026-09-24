@@ -15,13 +15,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { TransitRoute, JourneyStep, ExcuseTrigger } from '../types';
+import { RoutePoint } from '../data/transitData';
 import { determinePacingStatus } from '../utils/timeCalculations';
-import { formatDistance } from '../utils/geo';
+import { formatDistance, watchBrowserLocation, GeoPoint } from '../utils/geo';
+import { estimateRemainingMinutes } from '../utils/liveTracking';
 
 interface ActiveRideViewProps {
   currentRoute: TransitRoute;
   onOpenExcuseGenerator: (trigger: ExcuseTrigger) => void;
   targetArrivalTime?: string;
+  /** The destination this ride is actually headed to — captured at the
+   *  moment the route was activated, so it can't drift if the user later
+   *  edits the Plan tab's search without starting a new ride. Used to turn
+   *  live GPS fixes into a remaining-time estimate. */
+  destination?: RoutePoint | null;
 }
 
 interface RideCountdown {
@@ -34,11 +41,38 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
   currentRoute,
   onOpenExcuseGenerator,
   targetArrivalTime = '09:00',
+  destination = null,
 }) => {
   const [countdownSecondsByStep, setCountdownSecondsByStep] = useState<Record<number, number>>({});
   const [rideHailingToast, setRideHailingToast] = useState<string | null>(null);
   const [isSimulatedDelay, setIsSimulatedDelay] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [liveLocation, setLiveLocation] = useState<GeoPoint | null>(null);
+  const [liveLocationError, setLiveLocationError] = useState<string | null>(null);
+
+  // Live GPS tracking: while this screen is mounted, keep watching the
+  // browser's position so the ETA (and therefore the on-time/late call) is
+  // based on where the user actually is, not just the static route plan.
+  // Restarts whenever the destination changes (a fresh "Start Active Ride"),
+  // and always cleans up its watch on unmount so it never runs in the
+  // background on other tabs. Falls back silently (liveLocation stays null)
+  // if permission is denied or geolocation isn't supported — the render
+  // below then uses the static schedule estimate instead.
+  useEffect(() => {
+    setLiveLocation(null);
+    setLiveLocationError(null);
+    if (!destination) return undefined;
+    const handle = watchBrowserLocation(
+      (point) => {
+        setLiveLocation(point);
+        setLiveLocationError(null);
+      },
+      (message) => {
+        setLiveLocationError(message);
+      }
+    );
+    return () => handle.stop();
+  }, [destination?.id, destination?.lat, destination?.lon]);
 
   const rideSteps = currentRoute.steps.filter((s) => s.type === 'BUS' || s.type === 'MRT');
 
@@ -75,8 +109,19 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // When we have a live GPS fix, project the remaining time from the user's
+  // actual position instead of trusting the plan's static duration — this is
+  // what makes the on-time/late determination (and therefore which Late Lah!
+  // AI message shows) reflect where the user really is, not just the
+  // original estimate from when they tapped "Save Me the Headache".
+  const liveEstimate =
+    liveLocation && destination
+      ? estimateRemainingMinutes(liveLocation.lat, liveLocation.lon, destination.lat, destination.lon)
+      : null;
+
   const simulatedDelayAddon = isSimulatedDelay ? 18 : 0;
-  const totalTimeNeeded = currentRoute.totalDurationMin + simulatedDelayAddon;
+  const baselineMinutesNeeded = liveEstimate ? liveEstimate.estimatedMinutes : currentRoute.totalDurationMin;
+  const totalTimeNeeded = baselineMinutesNeeded + simulatedDelayAddon;
   const pacing = determinePacingStatus(totalTimeNeeded, targetArrivalTime, currentTime);
 
   const handleLaunchRide = (provider: 'Grab' | 'TADA', price: string) => {
@@ -156,6 +201,21 @@ export const ActiveRideView: React.FC<ActiveRideViewProps> = ({
             {currentRoute.liveDataNote && (
               <p className="text-[11px] text-[#434655] italic mt-1">{currentRoute.liveDataNote}</p>
             )}
+            <p className="text-[11px] font-semibold mt-1">
+              {liveEstimate ? (
+                <span className="inline-flex items-center gap-1 text-[#004f35]">
+                  <span className="material-symbols-outlined text-[14px]">my_location</span>
+                  Live GPS tracking — {formatDistance(liveEstimate.distanceMeters)} to go (estimate, not live transit routing)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[#434655]">
+                  <span className="material-symbols-outlined text-[14px]">location_off</span>
+                  {liveLocationError
+                    ? `Location unavailable (${liveLocationError}) — using planned schedule instead`
+                    : 'Getting your location for live tracking…'}
+                </span>
+              )}
+            </p>
           </div>
 
           <div className="pt-2 sm:pt-0 flex flex-wrap items-center gap-2">

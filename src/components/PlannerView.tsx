@@ -16,11 +16,42 @@ import { formatDistance } from '../utils/geo';
 import { planRoutes } from '../services/routePlanner';
 import { LocationCombobox } from './LocationCombobox';
 
+/**
+ * Everything about the current Plan search — inputs and results. Lifted out
+ * of this component (owned by App.tsx instead) so switching to Active Ride
+ * or Late Lah! AI and back doesn't reset it: this used to be local useState
+ * here, which meant the whole search was wiped every time PlannerView
+ * unmounted (i.e. every tab switch away from Plan).
+ */
+export interface PlanSearchState {
+  origin: RoutePoint;
+  destination: RoutePoint;
+  filterMode: 'fastest' | 'fewer_transfers';
+  selectedRouteId: string;
+  routes: TransitRoute[];
+  driveOption: DriveOption | null;
+  warnings: string[];
+  hasComputed: boolean;
+}
+
+export const DEFAULT_PLAN_SEARCH_STATE: PlanSearchState = {
+  origin: LOCATION_PRESETS[0],
+  destination: LOCATION_PRESETS[1],
+  filterMode: 'fastest',
+  selectedRouteId: '',
+  routes: [],
+  driveOption: null,
+  warnings: [],
+  hasComputed: false,
+};
+
 interface PlannerViewProps {
-  onSelectRoute: (route: TransitRoute) => void;
+  onSelectRoute: (route: TransitRoute, destinationPoint: RoutePoint) => void;
   onNavigateToActive: () => void;
   arriveByTime: string;
   onChangeArriveByTime: (time: string) => void;
+  search: PlanSearchState;
+  onChangeSearch: (patch: Partial<PlanSearchState>) => void;
 }
 
 export const PlannerView: React.FC<PlannerViewProps> = ({
@@ -28,18 +59,15 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
   onNavigateToActive,
   arriveByTime,
   onChangeArriveByTime,
+  search,
+  onChangeSearch,
 }) => {
-  const [origin, setOrigin] = useState<RoutePoint>(LOCATION_PRESETS[0]);
-  const [destination, setDestination] = useState<RoutePoint>(LOCATION_PRESETS[1]);
-  const [filterMode, setFilterMode] = useState<'fastest' | 'fewer_transfers'>('fastest');
-  const [selectedRouteId, setSelectedRouteId] = useState<string>('');
+  const { origin, destination, filterMode, selectedRouteId, routes, driveOption, warnings, hasComputed } = search;
   const [currentTime] = useState<Date>(new Date());
 
+  // Transient/UI-only state — fine to reset on every remount, unlike the
+  // search inputs and results above.
   const [isComputing, setIsComputing] = useState(false);
-  const [hasComputed, setHasComputed] = useState(false);
-  const [routes, setRoutes] = useState<TransitRoute[]>([]);
-  const [driveOption, setDriveOption] = useState<DriveOption | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
   const [computeError, setComputeError] = useState<string | null>(null);
 
   const sameLocation =
@@ -47,9 +75,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
     (Math.abs(origin.lat - destination.lat) < 0.0005 && Math.abs(origin.lon - destination.lon) < 0.0005);
 
   const handleSwap = () => {
-    const prevOrigin = origin;
-    setOrigin(destination);
-    setDestination(prevOrigin);
+    onChangeSearch({ origin: destination, destination: origin });
   };
 
   const handleSaveMeTheHeadache = async () => {
@@ -65,11 +91,13 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
         if (filterMode === 'fewer_transfers') return a.steps.length - b.steps.length;
         return a.totalDurationMin - b.totalDurationMin;
       });
-      setRoutes(sorted);
-      setDriveOption(result.driveOption);
-      setWarnings(result.warnings);
-      setHasComputed(true);
-      setSelectedRouteId('');
+      onChangeSearch({
+        routes: sorted,
+        driveOption: result.driveOption,
+        warnings: result.warnings,
+        hasComputed: true,
+        selectedRouteId: '',
+      });
     } catch (err) {
       setComputeError('Could not compute routes right now. Please try again.');
     } finally {
@@ -78,8 +106,8 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
   };
 
   const handleActivate = (route: TransitRoute, estReachTime: string, bufferMinutes: number) => {
-    setSelectedRouteId(route.id);
-    onSelectRoute({ ...route, estReachTime, bufferMinutes });
+    onChangeSearch({ selectedRouteId: route.id });
+    onSelectRoute({ ...route, estReachTime, bufferMinutes }, destination);
     onNavigateToActive();
   };
 
@@ -110,7 +138,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
               iconName="trip_origin"
               iconColorClass="text-[#0037b0]"
               value={origin}
-              onChange={setOrigin}
+              onChange={(point) => onChangeSearch({ origin: point })}
             />
 
             <button
@@ -128,7 +156,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
               iconName="location_on"
               iconColorClass="text-[#bb0112]"
               value={destination}
-              onChange={setDestination}
+              onChange={(point) => onChangeSearch({ destination: point })}
             />
           </div>
 
@@ -156,7 +184,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
               <div className="flex items-center gap-1 mt-1">
                 <button
                   type="button"
-                  onClick={() => setFilterMode('fastest')}
+                  onClick={() => onChangeSearch({ filterMode: 'fastest' })}
                   className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all min-h-[36px] ${
                     filterMode === 'fastest' ? 'bg-[#0037b0] text-white shadow-xs' : 'bg-white text-[#434655] hover:bg-[#faf8ff]'
                   }`}
@@ -165,7 +193,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFilterMode('fewer_transfers')}
+                  onClick={() => onChangeSearch({ filterMode: 'fewer_transfers' })}
                   className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all min-h-[36px] ${
                     filterMode === 'fewer_transfers' ? 'bg-[#0037b0] text-white shadow-xs' : 'bg-white text-[#434655] hover:bg-[#faf8ff]'
                   }`}
