@@ -11,27 +11,28 @@
  */
 
 import { TransitRoute } from '../types';
+import { NearestMrt } from './mrtStations';
 
-/** A named MRT/LRT station used as a preset's nearest-transfer point. */
-export interface NearestMrt {
-  code: string;
-  name: string;
-  /** Line codes serving this station, e.g. ['EW','DT'] for an interchange. */
-  lines: string[];
-  lat: number;
-  lon: number;
-}
+export type { NearestMrt };
 
-/** Quick location presets for origin and destination. */
-export interface LocationPreset {
+/**
+ * Anything route planning can work with: a real name, real coordinates, and
+ * a nearest-MRT reference. Both a curated LocationPreset and a geocoded
+ * custom search result (see services/geocode.ts) satisfy this shape, so
+ * routePlanner.ts doesn't care which one it was given.
+ */
+export interface RoutePoint {
   id: string;
   name: string;
-  type: 'home' | 'office' | 'mrt' | 'landmark';
-  description: string;
-  /** Real, public, approximate coordinates for this location. */
   lat: number;
   lon: number;
   nearestMrt: NearestMrt;
+}
+
+/** Quick location presets for origin and destination. */
+export interface LocationPreset extends RoutePoint {
+  type: 'home' | 'office' | 'mrt' | 'landmark';
+  description: string;
 }
 
 export const LOCATION_PRESETS: LocationPreset[] = [

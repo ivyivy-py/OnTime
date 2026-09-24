@@ -1,16 +1,18 @@
 /**
  * @file routePlanner.ts
- * Builds live route options between two LocationPresets.
+ * Builds live route options between two RoutePoints — either one of the 8
+ * quick presets, or a custom location geocoded via services/geocode.ts
+ * (both satisfy the same shape, so this doesn't care which).
  *
  * This replaces the old hardcoded SAMPLE_ROUTES. Every number here is
- * either (a) computed from the presets' real coordinates, or (b) pulled
+ * either (a) computed from the points' real coordinates, or (b) pulled
  * from the live LTA-backed /api endpoints. Nothing is invented — where a
  * figure is a computed estimate rather than a live reading, the resulting
  * TransitRoute/DriveOption is marked isEstimate/liveDataNote so the UI can
  * say so honestly (per the class's Ethical Guardrails).
  */
 
-import { LocationPreset } from '../data/transitData';
+import { RoutePoint } from '../data/transitData';
 import { TransitRoute, JourneyStep, DriveOption } from '../types';
 import { haversineMeters } from '../utils/geo';
 import { estimateDriveTime } from '../utils/driveTime';
@@ -99,8 +101,8 @@ export interface RoutePlanResult {
 }
 
 export async function planRoutes(
-  origin: LocationPreset,
-  destination: LocationPreset,
+  origin: RoutePoint,
+  destination: RoutePoint,
   arriveByTime: string,
   currentTime: Date
 ): Promise<RoutePlanResult> {

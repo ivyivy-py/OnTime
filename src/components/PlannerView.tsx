@@ -9,11 +9,12 @@
  */
 
 import React, { useState } from 'react';
-import { LOCATION_PRESETS, getWalkingPaceAdvice } from '../data/transitData';
+import { LOCATION_PRESETS, getWalkingPaceAdvice, RoutePoint } from '../data/transitData';
 import { TransitRoute, DriveOption } from '../types';
 import { determinePacingStatus } from '../utils/timeCalculations';
 import { formatDistance } from '../utils/geo';
 import { planRoutes } from '../services/routePlanner';
+import { LocationCombobox } from './LocationCombobox';
 
 interface PlannerViewProps {
   onSelectRoute: (route: TransitRoute) => void;
@@ -28,8 +29,8 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
   arriveByTime,
   onChangeArriveByTime,
 }) => {
-  const [originId, setOriginId] = useState<string>('tampines');
-  const [destinationId, setDestinationId] = useState<string>('suntec');
+  const [origin, setOrigin] = useState<RoutePoint>(LOCATION_PRESETS[0]);
+  const [destination, setDestination] = useState<RoutePoint>(LOCATION_PRESETS[1]);
   const [filterMode, setFilterMode] = useState<'fastest' | 'fewer_transfers'>('fastest');
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
   const [currentTime] = useState<Date>(new Date());
@@ -41,13 +42,14 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [computeError, setComputeError] = useState<string | null>(null);
 
-  const origin = LOCATION_PRESETS.find((p) => p.id === originId)!;
-  const destination = LOCATION_PRESETS.find((p) => p.id === destinationId)!;
-  const sameLocation = originId === destinationId;
+  const sameLocation =
+    origin.id === destination.id ||
+    (Math.abs(origin.lat - destination.lat) < 0.0005 && Math.abs(origin.lon - destination.lon) < 0.0005);
 
   const handleSwap = () => {
-    setOriginId(destinationId);
-    setDestinationId(originId);
+    const prevOrigin = origin;
+    setOrigin(destination);
+    setDestination(prevOrigin);
   };
 
   const handleSaveMeTheHeadache = async () => {
@@ -100,58 +102,34 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
             </span>
           </div>
 
-          {/* Origin & Destination selects */}
+          {/* Origin & Destination: type any Singapore address, or pick a quick preset */}
           <div className="space-y-2.5 relative">
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#f2f3ff] border border-[#dae2fd]">
-              <span className="material-symbols-outlined text-[#0037b0] text-[20px]">trip_origin</span>
-              <div className="flex-1 min-w-0">
-                <label className="block text-[10px] text-[#434655] font-bold uppercase tracking-wider" htmlFor="origin-select">
-                  Origin
-                </label>
-                <select
-                  id="origin-select"
-                  value={originId}
-                  onChange={(e) => setOriginId(e.target.value)}
-                  className="w-full bg-transparent text-[14px] sm:text-[15px] text-[#131b2e] font-semibold focus:outline-none"
-                >
-                  {LOCATION_PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <LocationCombobox
+              id="origin-input"
+              label="Origin"
+              iconName="trip_origin"
+              iconColorClass="text-[#0037b0]"
+              value={origin}
+              onChange={setOrigin}
+            />
 
             <button
               onClick={handleSwap}
               type="button"
               title="Swap Origin and Destination"
-              className="absolute right-3 top-[38px] w-8 h-8 rounded-full bg-white shadow-md border border-[#dae2fd] text-[#0037b0] flex items-center justify-center hover:bg-[#eaedff] active:scale-90 transition-all z-10 min-w-[32px] min-h-[32px]"
+              className="absolute right-3 top-[38px] w-8 h-8 rounded-full bg-white shadow-md border border-[#dae2fd] text-[#0037b0] flex items-center justify-center hover:bg-[#eaedff] active:scale-90 transition-all z-30 min-w-[32px] min-h-[32px]"
             >
               <span className="material-symbols-outlined text-[18px]">swap_vert</span>
             </button>
 
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#f2f3ff] border border-[#dae2fd]">
-              <span className="material-symbols-outlined text-[#bb0112] text-[20px]">location_on</span>
-              <div className="flex-1 min-w-0">
-                <label className="block text-[10px] text-[#434655] font-bold uppercase tracking-wider" htmlFor="destination-select">
-                  Destination
-                </label>
-                <select
-                  id="destination-select"
-                  value={destinationId}
-                  onChange={(e) => setDestinationId(e.target.value)}
-                  className="w-full bg-transparent text-[14px] sm:text-[15px] text-[#131b2e] font-semibold focus:outline-none"
-                >
-                  {LOCATION_PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <LocationCombobox
+              id="destination-input"
+              label="Destination"
+              iconName="location_on"
+              iconColorClass="text-[#bb0112]"
+              value={destination}
+              onChange={setDestination}
+            />
           </div>
 
           {sameLocation && (
